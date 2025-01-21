@@ -25,7 +25,12 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-  res.send("Project is running!");
+  return res
+      .status(200)
+      .json({
+        resultMessage: "Project is successfully working...",
+      })
+      .end();
 });
 
 app.use("/api/services", servicesRouter);
