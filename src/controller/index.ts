@@ -1,24 +1,23 @@
 import { Request, Response } from "express";
 import db from "../firebase";
-import { calculateDistance } from "../utils";
+import { fetchAllServices } from "../firebase/accessDb";
+import { Service } from "../types";
 import { findNearestService } from "../utils/nearestPath";
 
 const gridRows = 13;
 const gridCols = 16;
 
-// Define hospital location(s)
-const hospitalLocations: [number, number][] = [
-  [5, 5],
-  [12, 6],
-];
+const GetALL = async (req: Request, res: Response) => {
+  try {
+    const services = await fetchAllServices();
+    return res.json(services);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send("Internal server error.");
+  }
+};
 
-// Define ambulance location(s)
-const ambulanceLocations: [number, number][] = [
-  [10, 10],
-  [3, 7],
-];
-
-const NearestTemp = async (req: Request, res: Response) => {
+const Nearest = async (req: Request, res: Response) => {
   const { row, col, serviceType } = req.query;
 
   if (!row || !col || !serviceType) {
@@ -29,69 +28,38 @@ const NearestTemp = async (req: Request, res: Response) => {
 
   const currentLocation = { row: Number(row), col: Number(col) };
 
+  const servicesArray: Service[] = await fetchAllServices();
+
+  // Filter hospital locations
+  const hospitalLocations = servicesArray
+    .filter(
+      (service: Service) => service.type === "hospital" && service.location
+    ) // Ensure type is "hospital" and location exists
+    .map((service: Service) => service.location);
+
+  // Filter ambulance locations
+  const ambulanceLocations = servicesArray
+    .filter(
+      (service: Service) => service.type === "ambulance" && service.location
+    ) // Ensure type is "ambulance" and location exists
+    .map((service: Service) => service.location);
+
   // Find the nearest services
   const nearestService = findNearestService(
     [gridRows, gridCols],
     currentLocation,
     serviceType.toString(),
-    hospitalLocations.map((ele) => ({ row: ele[0], col: ele[1] })),
-    ambulanceLocations.map((ele) => ({ row: ele[0], col: ele[1] }))
+    hospitalLocations,
+    ambulanceLocations
   );
 
   if (nearestService) {
     return res.json({
-      nearestService: {
-        row: nearestService.path[0].row,
-        col: nearestService.path[0].col,
-      },
+      paths: nearestService.path,
       distance: nearestService.distance,
     });
   } else {
     return res.status(404).json({ message: "No available service found." });
-  }
-};
-
-const Nearest = async (req: Request, res: Response) => {
-  console.log(req.query);
-  const { row, col, serviceType } = req.query;
-
-  if (!row || !col || !serviceType) {
-    return res
-      .status(400)
-      .send("Missing required parameters: row, col, serviceType");
-  }
-
-  try {
-    const snapshot = await db.ref("services").once("value");
-    const services = snapshot.val();
-
-    let nearestService = null;
-    let minDistance = Infinity;
-
-    for (const key in services) {
-      if (
-        services[key].type === serviceType &&
-        services[key].status === "open"
-      ) {
-        const distance = calculateDistance(
-          { row: Number(row), col: Number(col) },
-          services[key].location
-        );
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestService = services[key];
-        }
-      }
-    }
-
-    if (nearestService) {
-      return res.json({ nearestService, distance: minDistance });
-    } else {
-      return res.status(404).json({ message: "No available service found." });
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).send("Internal server error.");
   }
 };
 
@@ -114,6 +82,42 @@ const Status = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).send("Internal server error.");
+  }
+};
+
+const Create = async (req: Request, res: Response) => {
+  const { location, type, status } = req.body;
+
+  // Validate required fields
+  if (!location || !location.row || !location.col || !type || !status) {
+    return res.status(400).json({
+      error: "Missing required fields: type, status, or location (row, col).",
+    });
+  }
+
+  try {
+    // Use Firebase's push() method to generate a unique key
+    const newServiceRef = db.ref("services").push();
+
+    const newService = {
+      id: newServiceRef.key, // Firebase-generated unique key
+      type,
+      location: { row: location.row, col: location.col },
+      status,
+    };
+
+    // Save the new service
+    await newServiceRef.set(newService);
+
+    return res.status(201).json({
+      message: "Service created successfully.",
+      service: newService,
+    });
+  } catch (error) {
+    console.error("Error creating service:", error);
+    return res.status(500).json({
+      error: "Internal server error. Please try again later.",
+    });
   }
 };
 
@@ -141,8 +145,9 @@ const Update = async (req: Request, res: Response) => {
 };
 
 export default {
-  NearestTemp,
+  GetALL,
   Nearest,
   Status,
+  Create,
   Update,
 };
