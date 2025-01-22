@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import db from "../firebase";
+import db from "../firebase.js";
 import { fetchAllServices } from "../firebase/accessDb.js";
 import { Service } from "../types";
 import { findNearestService } from "../utils/nearestPath.js";
