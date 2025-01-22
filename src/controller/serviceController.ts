@@ -122,6 +122,22 @@ const Create = async (req: Request, res: Response) => {
   }
 
   try {
+    const services = await fetchAllServices();
+
+    const findService = services.find(
+      (service) =>
+        service.location.row === location.row &&
+        service.location.col === location.col
+    );
+
+    if (findService) {
+      res.status(400).json({
+        message: "Service already exists at the specified location.",
+      });
+
+      return;
+    }
+
     // Use Firebase's push() method to generate a unique key
     const newServiceRef = db.ref("services").push();
 
