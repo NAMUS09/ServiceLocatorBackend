@@ -4,7 +4,7 @@ import express, { Express, Request, Response } from "express";
 import http from "http";
 import morgan from "morgan";
 
-import servicesRouter from "./routes/serviceRoutes";
+import servicesRouter from "./routes/serviceRoutes.js";
 
 dotenv.config();
 
