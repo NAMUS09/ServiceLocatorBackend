@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import db from "../firebase";
-import { fetchAllServices } from "../firebase/accessDb";
+import { fetchAllServices } from "../firebase/accessDb.js";
 import { Service } from "../types";
-import { findNearestService } from "../utils/nearestPath";
+import { findNearestService } from "../utils/nearestPath.js";
 
 const gridRows = 13;
 const gridCols = 16;
