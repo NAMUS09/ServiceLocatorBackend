@@ -5,14 +5,34 @@ const heuristic = (a: Cell, b: Cell): number =>
   Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
 
 // Get valid neighbors of a cell
-const getNeighbors = (cell: Cell, rows: number, cols: number): Cell[] => {
+const getNeighbors = (
+  cell: Cell,
+  rows: number,
+  cols: number,
+  reservedLocations: Set<string>
+): Cell[] => {
   const { row, col } = cell;
   const neighbors: Cell[] = [];
 
-  if (row > 0) neighbors.push({ row: row - 1, col }); // Up
-  if (row < rows - 1) neighbors.push({ row: row + 1, col }); // Down
-  if (col > 0) neighbors.push({ row, col: col - 1 }); // Left
-  if (col < cols - 1) neighbors.push({ row, col: col + 1 }); // Right
+  const potentialNeighbors = [
+    { row: row - 1, col }, // Up
+    { row: row + 1, col }, // Down
+    { row, col: col - 1 }, // Left
+    { row, col: col + 1 }, // Right
+  ];
+
+  for (const neighbor of potentialNeighbors) {
+    const key = `${neighbor.row},${neighbor.col}`;
+    if (
+      neighbor.row >= 0 &&
+      neighbor.row < rows &&
+      neighbor.col >= 0 &&
+      neighbor.col < cols &&
+      !reservedLocations.has(key) // Ensure it's not reserved
+    ) {
+      neighbors.push(neighbor);
+    }
+  }
 
   return neighbors;
 };
@@ -38,9 +58,8 @@ const reconstructPath = (
 export const findNearestService = (
   gridSize: [number, number], // [rows, cols]
   userLocation: Cell, // Single user location
-  serviceType: string,
-  hospitalLocations: Cell[], // Locations of hospitals
-  ambulanceLocations: Cell[] // Locations of ambulances
+  targetLocations: Cell[], // Locations of hospitals/ambulances
+  reservedLocations: Cell[] // All reserved locations (users, hospitals, ambulances)
 ): { path: Cell[]; distance: number } | null => {
   const [rows, cols] = gridSize;
 
@@ -49,6 +68,11 @@ export const findNearestService = (
 
   const gScore: Record<string, number> = {};
   const fScore: Record<string, number> = {};
+
+  // Convert reserved locations to a set for quick lookup
+  const reservedSet = new Set(
+    reservedLocations.map((loc) => `${loc.row},${loc.col}`)
+  );
 
   // Initialize gScore and fScore for each cell
   for (let r = 0; r < rows; r++) {
@@ -62,12 +86,6 @@ export const findNearestService = (
   const startKey = `${userLocation.row},${userLocation.col}`;
   gScore[startKey] = 0;
   fScore[startKey] = heuristic(userLocation, userLocation);
-
-  // chosoe target locations
-  const targetLocations =
-    serviceType == "hospital"
-      ? [...hospitalLocations]
-      : [...ambulanceLocations];
 
   while (openSet.length > 0) {
     // Sort openSet by fScore to get the cell with the lowest fScore
@@ -86,7 +104,7 @@ export const findNearestService = (
       return { path, distance: gScore[`${current.row},${current.col}`] };
     }
 
-    const neighbors = getNeighbors(current, rows, cols);
+    const neighbors = getNeighbors(current, rows, cols, reservedSet);
     for (const neighbor of neighbors) {
       const key = `${neighbor.row},${neighbor.col}`;
       const tentativeGScore = gScore[`${current.row},${current.col}`] + 1;

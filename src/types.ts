@@ -4,7 +4,7 @@ export interface Location {
 }
 
 export interface Service {
-  type: "ambulance" | "hospital";
+  type: "ambulance" | "hospital" | "user";
   status: "open" | "closed";
   location: Location;
 }

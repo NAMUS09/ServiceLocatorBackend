@@ -10,10 +10,10 @@ const gridCols = 16;
 const GetALL = async (req: Request, res: Response) => {
   try {
     const services = await fetchAllServices();
-    return res.json(services);
+    res.json(services);
   } catch (error) {
     console.error(error);
-    return res.status(500).send("Internal server error.");
+    res.status(500).send("Internal server error.");
   }
 };
 
@@ -21,9 +21,7 @@ const Nearest = async (req: Request, res: Response) => {
   const { row, col, serviceType } = req.query;
 
   if (!row || !col || !serviceType) {
-    return res
-      .status(400)
-      .send("Missing required parameters: row, col, serviceType");
+    res.status(400).send("Missing required parameters: row, col, serviceType");
   }
 
   const currentLocation = { row: Number(row), col: Number(col) };
@@ -33,33 +31,61 @@ const Nearest = async (req: Request, res: Response) => {
   // Filter hospital locations
   const hospitalLocations = servicesArray
     .filter(
-      (service: Service) => service.type === "hospital" && service.location
+      (service: Service) =>
+        service.type === "hospital" &&
+        service.location &&
+        service.status === "open"
     ) // Ensure type is "hospital" and location exists
     .map((service: Service) => service.location);
 
   // Filter ambulance locations
   const ambulanceLocations = servicesArray
     .filter(
-      (service: Service) => service.type === "ambulance" && service.location
+      (service: Service) =>
+        service.type === "ambulance" &&
+        service.location &&
+        service.status === "open"
     ) // Ensure type is "ambulance" and location exists
     .map((service: Service) => service.location);
+
+  // filter user locations
+  const userLocations = servicesArray
+    .filter(
+      (service: Service) =>
+        service.type === "user" && service.location && service.status === "open"
+    ) // Ensure type is "user" and location exists
+    .map((service: Service) => service.location);
+
+  const reservedLocations =
+    serviceType == "hospital"
+      ? [...ambulanceLocations, ...userLocations]
+      : [...hospitalLocations, ...userLocations];
+
+  const targetLocations =
+    serviceType == "hospital"
+      ? [...hospitalLocations]
+      : [...ambulanceLocations];
+
+  if (targetLocations.length === 0) {
+    res.status(404).json({ message: "No available service found." });
+    return;
+  }
 
   // Find the nearest services
   const nearestService = findNearestService(
     [gridRows, gridCols],
     currentLocation,
-    serviceType.toString(),
-    hospitalLocations,
-    ambulanceLocations
+    targetLocations,
+    reservedLocations
   );
 
   if (nearestService) {
-    return res.json({
+    res.json({
       paths: nearestService.path,
       distance: nearestService.distance,
     });
   } else {
-    return res.status(404).json({ message: "No available service found." });
+    res.status(404).json({ message: "No available service found." });
   }
 };
 
@@ -67,7 +93,7 @@ const Status = async (req: Request, res: Response) => {
   const { serviceId } = req.query;
 
   if (!serviceId) {
-    return res.status(400).send("Missing required parameter: serviceId");
+    res.status(400).send("Missing required parameter: serviceId");
   }
 
   try {
@@ -75,13 +101,13 @@ const Status = async (req: Request, res: Response) => {
     const service = snapshot.val();
 
     if (service) {
-      return res.json({ status: service.status });
+      res.json({ status: service.status });
     } else {
-      return res.status(404).send("Service not found.");
+      res.status(404).send("Service not found.");
     }
   } catch (error) {
     console.error(error);
-    return res.status(500).send("Internal server error.");
+    res.status(500).send("Internal server error.");
   }
 };
 
@@ -90,7 +116,7 @@ const Create = async (req: Request, res: Response) => {
 
   // Validate required fields
   if (!location || !location.row || !location.col || !type || !status) {
-    return res.status(400).json({
+    res.status(400).json({
       error: "Missing required fields: type, status, or location (row, col).",
     });
   }
@@ -109,13 +135,13 @@ const Create = async (req: Request, res: Response) => {
     // Save the new service
     await newServiceRef.set(newService);
 
-    return res.status(201).json({
+    res.status(201).json({
       message: "Service created successfully.",
       service: newService,
     });
   } catch (error) {
     console.error("Error creating service:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Internal server error. Please try again later.",
     });
   }
@@ -125,7 +151,7 @@ const Update = async (req: Request, res: Response) => {
   const { serviceId, status } = req.body;
 
   if (!serviceId || !status) {
-    return res.status(400).send("Missing required fields: serviceId, status");
+    res.status(400).send("Missing required fields: serviceId, status");
   }
 
   try {
@@ -134,13 +160,13 @@ const Update = async (req: Request, res: Response) => {
 
     if (service) {
       await db.ref(`services/${serviceId}`).update({ status });
-      return res.json({ message: "Service status updated successfully." });
+      res.json({ message: "Service status updated successfully." });
     } else {
-      return res.status(404).send("Service not found.");
+      res.status(404).send("Service not found.");
     }
   } catch (error) {
     console.error(error);
-    return res.status(500).send("Internal server error.");
+    res.status(500).send("Internal server error.");
   }
 };
 
