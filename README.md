@@ -5,10 +5,10 @@ This is the backend service for the Emergency Service Locator application. It pr
 ## Features
 
 - Fetch all emergency services
-- Locate the nearest emergency service based on geolocation
+- Locate the nearest emergency service based on provided grid location and service type
+- Get the status of a specific emergency service
 - Update the status of a specific emergency service
 - Create new emergency services
-- Update existing emergency services
 
 ## Requirements
 
@@ -144,14 +144,17 @@ Content-Type: application/json
 
 ```json
 {
+  "message": "Service created successfully.",
+  "service": {
     "id": "-OH8BdVcUDvwR4nurr-5",
     "location": {
-        "col": 9,
-        "row": 2
+      "col": 9,
+      "row": 2
     },
     "status": "open",
     "type": "ambulance"
-},
+  }
+}
 ```
 
 #### Status Codes
@@ -184,14 +187,8 @@ Content-Type: application/json
 
 ```json
 {
-    "id": "-OH8BdVcUDvwR4nurr-5",
-    "location": {
-        "col": 9,
-        "row": 2
-    },
-    "status": "open",
-    "type": "ambulance"
-},
+  "message": "Service status updated successfully."
+}
 ```
 
 #### Status Codes
